@@ -29,6 +29,8 @@ namespace Platform {
  *
  */
 void ENFORCE_FORMAT(3, 0) LogV(const char * module, uint8_t category, const char * msg, va_list v);
+void LogSetLevel(uint8_t level);
+uint8_t LogGetLevel(void);
 
 } // namespace Platform
 } // namespace Logging
