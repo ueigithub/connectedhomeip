@@ -37,6 +37,44 @@ namespace chip {
 namespace Logging {
 namespace Platform {
 
+#if 1 //////// added by Minchun
+static uint8_t m_logLevel = 3;
+void LogSetLevel(uint8_t level)
+{
+    m_logLevel = level;
+}
+uint8_t  LogGetLevel(void)
+{
+    return m_logLevel;
+}
+
+void LogV(const char * module, uint8_t category, const char * msg, va_list v)
+{
+    char tag[11];
+
+    if (m_logLevel == 0) return;
+
+    snprintf(tag, sizeof(tag), "chip[%s]", module);
+    tag[sizeof(tag) - 1] = 0;
+
+    char formattedMsg[CHIP_CONFIG_LOG_MESSAGE_MAX_SIZE];
+    vsnprintf(formattedMsg, sizeof(formattedMsg), msg, v);
+
+    switch (category)
+    {
+    case kLogCategory_Error:
+        if (m_logLevel >= 1) printf("%s %s\r\n", tag, formattedMsg);
+        break;
+    case kLogCategory_Progress:
+    default:
+        if (m_logLevel >= 2) printf("%s %s\r\n", tag, formattedMsg);
+        break;
+    case kLogCategory_Detail:
+        if (m_logLevel >= 3) printf("%s %s\r\n", tag, formattedMsg);
+        break;
+    }
+}
+#else //////// added by Minchun
 void LogV(const char * module, uint8_t category, const char * msg, va_list v)
 {
     char tag[11];
@@ -62,6 +100,7 @@ void LogV(const char * module, uint8_t category, const char * msg, va_list v)
     }
 }
 
+#endif //////// added by Minchun
 } // namespace Platform
 } // namespace Logging
 } // namespace chip
