@@ -75,11 +75,11 @@
 // UEI Basic Cluster definitions
 //////////////////////////////////
 #define CHIP_DEVICE_CONFIG_DEVICE_VENDOR_NAME                       "Universal Electronics, Inc."
-#define CHIP_DEVICE_CONFIG_DEVICE_VENDOR_ID                         0x10EF
-#define CHIP_DEVICE_CONFIG_DEVICE_PRODUCT_NAME                      "Tide Dial"
-#define CHIP_DEVICE_CONFIG_DEVICE_PRODUCT_ID                        0x8001
+//#define CHIP_DEVICE_CONFIG_DEVICE_VENDOR_ID                         0x10EE
+//#define CHIP_DEVICE_CONFIG_DEVICE_PRODUCT_NAME                      "Tide Dial"
+//#define CHIP_DEVICE_CONFIG_DEVICE_PRODUCT_ID                        0x8001
 #define CHIP_DEVICE_CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION_STRING   "30739"
 #define CHIP_DEVICE_CONFIG_DEFAULT_DEVICE_HARDWARE_VERSION          30739
-#define CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION_STRING           "1.27.12"
+#define CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION_STRING           "1.30.09"
 #define CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION                  0x0705
-#define CHIP_DEVICE_CONFIG_TEST_SERIAL_NUMBER                       "TEST_SN_1234"
+#define CHIP_DEVICE_CONFIG_TEST_SERIAL_NUMBER                       "UEI_SN_1234"
