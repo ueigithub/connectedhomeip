@@ -83,24 +83,46 @@ CHIP_ERROR ConnectivityManagerImpl::_Init()
     chip_connmgr_set_callback_func((chip_connmgr_callback)(conn_callback_dispatcher), this);
 
     // Register WiFi event handlers
-    wifi_reg_event_handler(WIFI_EVENT_CONNECT, ConnectivityManagerImpl::RtkWiFiStationConnectedHandler, NULL);
     wifi_reg_event_handler(WIFI_EVENT_FOURWAY_HANDSHAKE_DONE, ConnectivityManagerImpl::RtkWiFiStationConnectedHandler, NULL);
     wifi_reg_event_handler(WIFI_EVENT_DISCONNECT, ConnectivityManagerImpl::RtkWiFiStationDisconnectedHandler, NULL);
-    wifi_reg_event_handler(WIFI_EVENT_DHCP6_DONE, ConnectivityManagerImpl::RtkWiFiDHCPCompletedHandler, NULL);
 
     err = Internal::AmebaUtils::StartWiFi();
     SuccessOrExit(err);
+    err = Internal::AmebaUtils::EnableStationMode();
+    SuccessOrExit(err);
 
-    bool stationIPLinked;
-    err = Internal::AmebaUtils::IsStationIPLinked(stationIPLinked);
+    // If there is no persistent station provision...
+    if (!IsWiFiStationProvisioned())
+    {
+        // If the code has been compiled with a default WiFi station provision, configure that now.
+#if !defined(CONFIG_DEFAULT_WIFI_SSID)
+        ChipLogProgress(DeviceLayer, "Please define CONFIG_DEFAULT_WIFI_SSID");
+#else
+        if (CONFIG_DEFAULT_WIFI_SSID[0] != 0)
+        {
+            ChipLogProgress(DeviceLayer, "Setting default WiFi station configuration (SSID: %s)", CONFIG_DEFAULT_WIFI_SSID);
 
-    if (stationIPLinked)
-    {
-        ChangeWiFiStationState(kWiFiStationState_Connecting_Succeeded);
-    }
-    else
-    {
-        ChangeWiFiStationState(kWiFiStationState_NotConnected);
+            // Set a default station configuration.
+            rtw_wifi_config_t wifiConfig;
+            memset(&wifiConfig, 0, sizeof(wifiConfig));
+            memcpy(wifiConfig.ssid, CONFIG_DEFAULT_WIFI_SSID, strlen(CONFIG_DEFAULT_WIFI_SSID) + 1);
+            memcpy(wifiConfig.password, CONFIG_DEFAULT_WIFI_PASSWORD, strlen(CONFIG_DEFAULT_WIFI_PASSWORD) + 1);
+            wifiConfig.mode = RTW_MODE_STA;
+
+            // Configure the WiFi interface.
+            err = Internal::AmebaUtils::SetWiFiConfig(&wifiConfig);
+            SuccessOrExit(err);
+
+            // Enable WiFi station mode.
+            ReturnErrorOnFailure(SetWiFiStationMode(kWiFiStationMode_Enabled));
+        }
+
+        // Otherwise, ensure WiFi station mode is disabled.
+        else
+        {
+            ReturnErrorOnFailure(SetWiFiStationMode(kWiFiStationMode_Disabled));
+        }
+#endif
     }
 
     // Force AP mode off for now.
@@ -157,19 +179,6 @@ void ConnectivityManagerImpl::_OnPlatformEvent(const ChipDeviceEvent * event)
     {
         ChipLogProgress(DeviceLayer, "WiFiScanCompleted");
         NetworkCommissioning::AmebaWiFiDriver::GetInstance().OnScanWiFiNetworkDone();
-    }
-    printf("%s %d\r\n", __FUNCTION__, __LINE__);
-    if (event->Type == DeviceEventType::kRtkWiFiDHCPCompletedEvent)
-    {
-    printf("%s %d\r\n", __FUNCTION__, __LINE__);
-        ChipLogProgress(DeviceLayer, "WiFiDHCPCompleted");
-        const bool hadIPv4Conn = mFlags.Has(ConnectivityFlags::kHaveIPv4InternetConnectivity);
-        const bool hadIPv6Conn = mFlags.Has(ConnectivityFlags::kHaveIPv6InternetConnectivity);
-        if(!(hadIPv4Conn || hadIPv6Conn))
-        {
-            ChipLogProgress(DeviceLayer, "WiFiDHCPCompleted: UpdateInternetConnectivityState\n");
-            UpdateInternetConnectivityState();
-        }
     }
 #endif // CHIP_DEVICE_CONFIG_ENABLE_WIFI
 }
@@ -482,6 +491,8 @@ void ConnectivityManagerImpl::DriveStationState()
     if (mWiFiStationMode != kWiFiStationMode_ApplicationControlled)
     {
         err = Internal::AmebaUtils::StartWiFi();
+        SuccessOrExit(err);
+        err = Internal::AmebaUtils::EnableStationMode();
         SuccessOrExit(err);
     }
 
@@ -824,17 +835,6 @@ void ConnectivityManagerImpl::RefreshMessageLayer(void) {}
 
 void ConnectivityManagerImpl::RtkWiFiStationConnectedHandler(char * buf, int buf_len, int flags, void * userdata)
 {
-    bool stationConnected;
-    Internal::AmebaUtils::IsStationConnected(stationConnected);
-    if(Internal::AmebaUtils::IsStationOpenSecurity())
-    {
-        //continue
-    }
-    else if (!stationConnected)
-    {
-        return;
-    }
-
     ChipDeviceEvent event;
     memset(&event, 0, sizeof(event));
     event.Type = DeviceEventType::kRtkWiFiStationConnectedEvent;
@@ -857,24 +857,15 @@ void ConnectivityManagerImpl::RtkWiFiScanCompletedHandler(void)
     PlatformMgr().PostEventOrDie(&event);
 }
 
-void ConnectivityManagerImpl::RtkWiFiDHCPCompletedHandler(char * buf, int buf_len, int flags, void * userdata)
-{
-    printf("%s %d\r\n", __FUNCTION__, __LINE__);
-    ChipDeviceEvent event;
-    memset(&event, 0, sizeof(event));
-    event.Type = DeviceEventType::kRtkWiFiDHCPCompletedEvent;
-    PlatformMgr().PostEventOrDie(&event);
-}
-
 void ConnectivityManagerImpl::DHCPProcessThread(void * param)
 {
-    matter_lwip_dhcp();
+    matter_lwip_dhcp(0, DHCP_START);
     PlatformMgr().LockChipStack();
     sInstance.OnStationIPv4AddressAvailable();
     PlatformMgr().UnlockChipStack();
 #if LWIP_VERSION_MAJOR > 2 || LWIP_VERSION_MINOR > 0
 #if LWIP_IPV6
-    matter_lwip_dhcp6();
+    matter_lwip_dhcp(0, DHCP6_START);
     PlatformMgr().LockChipStack();
     sInstance.OnIPv6AddressAvailable();
     PlatformMgr().UnlockChipStack();
